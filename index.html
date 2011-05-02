@@ -1,0 +1,161 @@
+<html>
+    <head>
+        <link type="text/css" rel="stylesheet" href="/stylesheets/main.css" />
+        <h1>CSSP HW1</h1>
+        <div id="datetime"></div>
+        <div id="weather"></div><br>
+        <div id="browser">Your browser is {{ browser }}.</div><br>
+
+        <script src="http://code.jquery.com/jquery-1.5.js"></script>
+        <script type="text/javascript">
+        <!--
+            if( !window.XMLHttpRequest ) XMLHttpRequest = function() {
+                try{ return new ActiveXObject("Msxml2.XMLHTTP.6.0") }catch(e){}
+                try{ return new ActiveXObject("Msxml2.XMLHTTP.3.0") }catch(e){}
+                try{ return new ActiveXObject("Msxml2.XMLHTTP") }catch(e){}
+                try{ return new ActiveXObject("Microsoft.XMLHTTP") }catch(e){}
+                throw new Error("Could not find an XMLHttpRequest alternative.")
+            };
+
+            function showDateTime() {
+                var dayName = new Array("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat");
+                var monthName = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
+                var currentTime = new Date();
+                var year = currentTime.getFullYear();
+                var month = currentTime.getMonth();
+                var day = currentTime.getDate();
+                var str = dayName[currentTime.getDay()] + " " + monthName[month] + " " + day + ", " + year;
+                $("div#datetime").append(str);
+            }
+
+            function showWeather() {
+                $.ajax({
+                    type: "GET",
+                    url: "http://ntu-taiwan-weather.appspot.com/json/current/Taipei/?callback=?",
+                    dataType: "json",
+                    success: function(data) {
+                        var str =  data["city"] + " " + data["temperature"] + "&deg;C " + data["description"];
+                        $("div#weather").append(str);
+                    },
+                    error: function(data) {
+                        $("div#weather").append("Failed to retrieve weather info!");
+                    }
+                });
+            }
+
+            function Request(function_name, opt_argv) {
+                if (!opt_argv)
+                    opt_argv = new Array();
+
+                // Find if the last arg is a callback function; save it
+                var callback = null;
+                var len = opt_argv.length;
+                if (len > 0 && typeof opt_argv[len-1] == 'function') {
+                    callback = opt_argv[len-1];
+                    opt_argv.length--;
+                }
+                var async = (callback != null);
+
+                // Build an Array of parameters, w/ function_name being the first parameter
+                var params = new Array(function_name);
+                for (var i = 0; i < opt_argv.length; i++) {
+                    params.push(opt_argv[i]);
+                }
+                var body = JSON.stringify(params);
+
+                // Create an XMLHttpRequest 'POST' request w/ an optional callback handler
+                var req = new XMLHttpRequest();
+                req.open('POST', '/rpc', async);
+
+                req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+                req.setRequestHeader("Content-length", body.length);
+                req.setRequestHeader("Connection", "close");
+
+                if (async) {
+                    req.onreadystatechange = function() {
+                        if(req.readyState == 4 && req.status == 200) {
+                            var response = null;
+                            try {
+                                response = JSON.parse(req.responseText);
+                            } catch (e) {
+                                response = req.responseText;
+                            }
+                            callback(response);
+                        }
+                    }
+                }
+
+                // Make the actual request
+                req.send(body);
+            }
+
+            function InstallFunction(obj, functionName) {
+                obj[functionName] = function() { Request(functionName, arguments); }
+            }
+            
+
+            var server = {};
+            InstallFunction(server, 'Add');
+            InstallFunction(server, 'Del');
+
+            function onAddSuccess(response) {
+                var str = "<div id=\"" + response[0] + "\">";
+                if (response[1]) {
+                    str += "<b>" + response[1] + "</b>";
+                }
+                else {
+                    str += "Anonymous";
+                }
+                str += " " + response[3];
+                str += "<blockquote>" + response[2] + "</blockquote>";
+                str += "<input type=\"button\" value=\"Erase\" OnClick=delPost(\"" + response[0] + "\")>";
+                str += "</div>";
+                $("div#oldposts").prepend(str);
+                document.getElementById("content").value = "";
+            }
+
+            function addPost() {
+                var content = $("textarea#content").val();
+                server.Add(content, onAddSuccess);
+            }
+
+            function onDelSuccess(response) {
+                var str = "div#" + response;
+                $(str).remove();
+            }
+
+            function delPost(key) {
+                server.Del(key, onDelSuccess);
+            }
+
+            showDateTime();
+            showWeather();
+        //-->
+        </script>
+    </head>
+    <body>
+        <div><textarea id="content" rows="3" col="60"></textarea></div>
+        <div>
+            <input type="hidden" id="username" value="{{ username }}">
+            <input type="button" value="Sign Guestbook" OnClick="addPost()">
+            {{ username }}
+            <a href="{{ url }}">{{ url_linktext }}</a>
+        </div>
+        <br><hr>
+
+        <div id="oldposts">
+            {% for greeting in greetings %}
+            <div id="{{ greeting.key }}">
+                {% if greeting.author %}
+                    <b>{{ greeting.author.nickname }}</b>
+                {% else %}
+                    Anonymous
+                {% endif %}
+                {{ greeting.date|date:"Y-m-d H:i:s" }}
+                <blockquote>{{ greeting.content|escape }}</blockquote>
+                <input type="button" value="Erase" OnClick=delPost("{{ greeting.key }}")>
+            </div>
+            {% endfor %}
+        </div>
+    </body>
+</html>
